@@ -2,9 +2,11 @@
 # grader.py - Originally coded by: Carmine T. Guida
 ################################################################################
 
+import os
 import sys
 import requests
 import csv
+import urllib
 
 ################################################################################
 
@@ -13,12 +15,17 @@ base = "https://gatech.instructure.com"
 token = ""
 course = ""
 assignment = ""
+courseGroup = ""
+
 
 canvasProfile = {}
 canvasCourses = []
 canvasCourseUsers = []
 canvasCourseAssignments = []
 courseAssignmentSubmissions = []
+courseGroupCategories = []
+courseGroups = []
+courseGroupUsers = []
 
 ################################################################################
 
@@ -42,6 +49,9 @@ def CanvasAPIGet(url):
             print("ERROR HTTP STATUS CODE: " + str(response.status_code))
             quit()
         else:
+            #print("")
+            #print("[" + current + "]")
+            #print (response.text)
             result = response.json()
             if (isinstance(result, dict)):
                 return result
@@ -83,6 +93,22 @@ def GetCourseUsers():
     global canvasCourseUsers
     global course
     canvasCourseUsers = CanvasAPIGet("/api/v1/courses/" + course + "/users")
+
+def GetCourseGroupCategories():
+    global courseGroupCategories
+    global course
+    courseGroupCategories = CanvasAPIGet("/api/v1/courses/" + course + "/group_categories")
+
+def GetCourseGroups():
+    global courseGroups
+    global course
+    courseGroups = CanvasAPIGet("/api/v1/courses/" + course + "/groups")
+
+def GetCourseGroupUsers():
+    global courseGroupUsers
+    global courseGroup
+    global course
+    courseGroupUsers = CanvasAPIGet("/api/v1/groups/" + courseGroup + "/users")
 
 def GetCourseAssignments():
     global canvasCourseAssignments
@@ -142,6 +168,17 @@ def PromptAssignment():
     while len(assignment) <= 0:
         assignment = str(input(":")).strip()
 
+def PromptGroup():
+    global courseGroups
+    global courseGroup
+    print("Which Group?")
+    for entry in courseGroups:
+        print(str(entry["id"]) + " " + entry["name"])
+
+    while len(courseGroup) <= 0:
+        courseGroup = str(input(":")).strip()
+
+
 def ProcessMenuOption(option):
     pos = option.find(" ")
     if (pos > 0):
@@ -159,10 +196,15 @@ def ProcessMenuOption(option):
             CommandImport(filename)
             quit()
 
+        if (command == "download"):
+            CommandDownload(filename)
+            quit()
+
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
     print("> import filename.csv")
+    print("> download folder_to_put_files_in")
 
     option = ""
 
@@ -199,10 +241,53 @@ def GetCourseAndAssignment():
     PromptCourse()
 
     GetCourseUsers()
+
+    GetCourseGroupCategories()
+    GetCourseGroups()
+
     GetCourseAssignments()
     PromptAssignment()
 
     GetCourseAssignmentSubmissions()
+
+def CommandDownload(foldername):
+    global canvasCourseUsers
+    global course
+    global assignment
+
+    GetCourseAndAssignment()
+    PromptGroup()
+    GetCourseGroupUsers()
+
+    if (foldername.endswith("/") == False):
+        foldername = foldername + "/"
+
+    if (os.path.exists(foldername) == False):
+        print("Creating folder: " + foldername)
+        os.makedirs(foldername)
+
+    print ("Downloading to: " + foldername)
+
+    for user in courseGroupUsers:
+        link = ""
+
+        submission = FindSubmissionByUser(user)
+        if (submission != None):
+            if ("attachments" in submission):
+                link = GetAttachmentsLink(submission["attachments"])
+
+        if (link == ""):
+            continue
+
+        filename = user["sortable_name"]
+        filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+        filename = foldername + filename + ".pdf"
+
+        print("Downloading: " + link + " [to] " + filename)
+
+        DownloadURLToFile(link, filename)
+
+    print("Done!")
 
 def CommandExport(filename):
     global canvasCourseUsers
@@ -235,6 +320,11 @@ def CommandExport(filename):
             writer.writerow(row)
 
     print("Done!")
+
+def DownloadURLToFile(url, filename):
+    with open(filename, "wb") as file:
+        response = requests.get(url)
+        file.write(response.content)
 
 def IndexRequired(list, id, errorIfMissing=True):
     try:
