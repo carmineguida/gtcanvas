@@ -181,30 +181,37 @@ def PromptGroup():
 
 def ProcessMenuOption(option):
     pos = option.find(" ")
-    if (pos > 0):
-        command = option[:pos].strip().lower()
-        filename = option[pos:].strip()
+    if (pos < 0):
+        pos = len(option)
 
-        if (command == "quit" or command == "exit"):
-            quit()
+    command = option[:pos].strip().lower()
+    filename = option[pos:].strip()
 
-        if (command == "export"):
-            CommandExport(filename)
-            quit()
+    if (command == "quit" or command == "exit"):
+        quit()
 
-        if (command == "import"):
-            CommandImport(filename)
-            quit()
+    if (command == "export"):
+        CommandExport(filename)
+        quit()
 
-        if (command == "download"):
-            CommandDownload(filename)
-            quit()
+    if (command == "import"):
+        CommandImport(filename)
+        quit()
+
+    if (command == "download"):
+        CommandDownload(filename)
+        quit()
+
+    if (command == "mentor"):
+        CommandMentor()
+        quit()
 
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
     print("> import filename.csv")
     print("> download folder_to_put_files_in")
+    print("> mentor")
 
     option = ""
 
@@ -249,6 +256,30 @@ def GetCourseAndAssignment():
     PromptAssignment()
 
     GetCourseAssignmentSubmissions()
+
+
+def CommandMentor():
+    global canvasCourseUsers
+    global course
+
+    GetCourses()
+    PromptCourse()
+
+    GetCourseUsers()
+
+    GetCourseGroupCategories()
+    GetCourseGroups()
+
+    PromptGroup()
+    GetCourseGroupUsers()
+
+    mentorName = canvasProfile["name"]
+
+    for user in courseGroupUsers:
+        print(mentorName + " - " + user["name"] + " - Mentor Discussion thread")
+
+    print("Done!")
+
 
 def CommandDownload(foldername):
     global canvasCourseUsers
