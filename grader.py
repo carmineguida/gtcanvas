@@ -274,18 +274,27 @@ def CommandDownload(foldername):
         submission = FindSubmissionByUser(user)
         if (submission != None):
             if ("attachments" in submission):
-                link = GetAttachmentsLink(submission["attachments"])
+                attachments = submission["attachments"]
+                if (attachments is None):
+                    continue
 
-        if (link == ""):
-            continue
+                attachmentCount = 0
+                for attachment in attachments:
+                    link = attachment["url"]
+                    if (link == ""):
+                        continue
 
-        filename = user["sortable_name"]
-        filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-        filename = foldername + filename + ".pdf"
+                    filename = user["sortable_name"]
+                    filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+                    if (attachmentCount > 0):
+                        filename = filename + "_" + str(attachmentCount)
+                    filename = foldername + filename + ".pdf"
 
-        print("Downloading: " + link + " [to] " + filename)
+                    print("Downloading: " + link + " [to] " + filename)
 
-        DownloadURLToFile(link, filename)
+                    DownloadURLToFile(link, filename)
+
+                    attachmentCount = attachmentCount + 1
 
     print("Done!")
 
