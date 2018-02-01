@@ -194,10 +194,18 @@ def ProcessMenuOption(option):
         CommandExport(filename)
         quit()
 
+    if (command == "getrubric"):
+        CommandGetRubric(filename)
+        quit()
+        
     if (command == "import"):
         CommandImport(filename)
         quit()
-
+        
+    if (command == "importrubric"):
+        CommandImportRubric(filename)
+        quit()
+        
     if (command == "download"):
         CommandDownload(filename)
         quit()
@@ -209,7 +217,9 @@ def ProcessMenuOption(option):
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
+    print("> getrubric filename.csv")
     print("> import filename.csv")
+    print("> importrubric filename.csv")
     print("> download folder_to_put_files_in")
     print("> mentor")
 
@@ -243,7 +253,7 @@ def GetAttachmentsLink(attachments):
         link += attachment["url"]
     return link
 
-def GetCourseAndAssignment():
+def GetCourseAndAssignment(excludeSubmissions = False):
     GetCourses()
     PromptCourse()
 
@@ -255,7 +265,8 @@ def GetCourseAndAssignment():
     GetCourseAssignments()
     PromptAssignment()
 
-    GetCourseAssignmentSubmissions()
+    if not excludeSubmissions:
+        GetCourseAssignmentSubmissions()
 
 
 def CommandMentor():
@@ -361,6 +372,32 @@ def CommandExport(filename):
 
     print("Done!")
 
+def CommandGetRubric(filename):
+    global canvasCourseUsers
+    global course
+    global assignment
+
+    GetCourseAndAssignment(True)
+    
+    global course
+    global assignment
+    courseAssignnment = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment)
+    rubric = courseAssignnment["rubric"]
+    
+
+    print ("Exporting: " + filename)
+    headerList =  ["course_id", "assignment_id", "rubric_id", "description", "long_description", "points"];
+
+    with open(filename, "w")  as csvfile:
+
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+        for item in rubric:
+            row = [course, assignment, item["id"], item["description"], item["long_description"], item["points"]]
+            writer.writerow(row)
+
+    print("Done!")
+    
 def DownloadURLToFile(url, filename):
     with open(filename, "wb") as file:
         response = requests.get(url)
@@ -411,6 +448,56 @@ def CommandImport(filename):
             else:
                 SubmitGrade(course_id, assignment_id, user_id, score, comment)
                 print("Grade posted")
+            rowCount += 1
+
+    print("Done!")
+    
+# follows the standard import headers, but link column must exist (and is not used)
+# rubric item ID goes in header cell, starting in the cell AFTER link
+# put points scored for that item under the rubric item ID and put the comments in the next column
+# must have a pair of these columns for every rubric item you wish to populate 
+# and they must be the LAST columns in the sheet starting AFTER link column
+# you can get the rubric item IDs from the exportrubric command
+# SAMPLE HEADERS: course_id	assignment_id, user_id, name, link, _5573, comment, _5397, comment
+def CommandImportRubric(filename):
+    print ("Importing: " + filename)
+    with open(filename, "r")  as csvfile:
+        reader = csv.reader(csvfile)
+        headerList = next(reader)
+
+        course_id_index = IndexRequired(headerList, "course_id")
+        assignment_id_index = IndexRequired(headerList, "assignment_id")
+        user_id_index = IndexRequired(headerList, "user_id")
+        link_index = IndexRequired(headerList, "link")
+        rubric_item_start = link_index + 1
+        
+        name_index = IndexRequired(headerList, "name", False)
+        if (name_index < 0):
+            name_index = IndexRequired(headerList, "Name", False)
+
+        rowCount = 1
+        for row in reader:
+            course_id = row[course_id_index]
+            assignment_id = row[assignment_id_index]
+            user_id = row[user_id_index]
+            name = ""
+
+            if (name_index >= 0):
+                name = row[name_index]
+
+            print("Processing Row " + str(rowCount) + " " + user_id + " " + name + ": ", end="")
+
+            params = {
+                "include[visibility]":"true"
+            }
+            i = rubric_item_start
+            while i < len(headerList):
+                params["rubric_assessment[" + headerList[i] + "][points]"] = row[i]
+                params["rubric_assessment[" + headerList[i] + "][comments]"] = row[i + 1]
+                i += 2
+
+            CanvasAPIPut("/api/v1/courses/" + course_id + "/assignments/" + assignment_id + "/submissions/" + user_id, params)
+            print("Grade posted")
             rowCount += 1
 
     print("Done!")
