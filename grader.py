@@ -71,7 +71,7 @@ def CanvasAPIPut(url, params):
 
     headers = {"Authorization": "Bearer " + token}
 
-    response = requests.put(base + url, headers=headers, params=params)
+    response = requests.put(base + url, headers=headers, data=params)
 
     if (response.status_code != requests.codes.ok):
         print("ERROR HTTP STATUS CODE: " + str(response.status_code))
