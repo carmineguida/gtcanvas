@@ -15,6 +15,7 @@ base = "https://gatech.instructure.com"
 token = ""
 course = ""
 assignment = ""
+quiz = ""
 courseGroup = ""
 
 
@@ -22,6 +23,8 @@ canvasProfile = {}
 canvasCourses = []
 canvasCourseUsers = []
 canvasCourseAssignments = []
+canvasCourseQuizes = []
+canvasCourseQuizSubmissions = []
 courseAssignmentSubmissions = []
 courseGroupCategories = []
 courseGroups = []
@@ -115,6 +118,19 @@ def GetCourseAssignments():
     global course
     canvasCourseAssignments = CanvasAPIGet("/api/v1/courses/" + course + "/assignments")
 
+def GetCourseQuizes():
+    global canvasCourseQuizes
+    global course
+    canvasCourseQuizes = CanvasAPIGet("/api/v1/courses/" + course + "/quizzes")
+
+def GetCourseQuizSubmissions():
+    global canvasCourseQuizes
+    global canvasCourseQuizSubmissions
+    global course
+    global quiz
+    canvasCourseQuizSubmissions = CanvasAPIGet("/api/v1/courses/" + course + "/quizzes/" + quiz + "/submissions")
+
+
 def GetCourseAssignmentSubmissions():
     global courseAssignmentSubmissions
     global course
@@ -133,9 +149,24 @@ def SubmitGrade(course_id, assignment_id, user_id, score, comment):
 ################################################################################
 
 def FindSubmissionByUser(user):
+    global courseAssignmentSubmissions
     user_id = user["id"]
     for entry in courseAssignmentSubmissions:
         if (entry["user_id"] == user_id):
+            return entry
+    return None
+
+def FindUser(user_id):
+    global canvasCourseUsers
+    for entry in canvasCourseUsers:
+        if (int(entry["id"]) == int(user_id)):
+            return entry
+    return None
+
+def FindQuiz(quiz_id):
+    global canvasCourseQuizes
+    for entry in canvasCourseQuizes:
+        if (int(entry["id"]) == int(quiz_id)):
             return entry
     return None
 
@@ -168,6 +199,16 @@ def PromptAssignment():
     while len(assignment) <= 0:
         assignment = str(input(":")).strip()
 
+def PromptQuiz():
+    global canvasCourseQuizes
+    global quiz
+    print("Which Quiz?")
+    for entry in canvasCourseQuizes:
+        print(str(entry["id"]) + " " + entry["title"])
+
+    while len(quiz) <= 0:
+        quiz = str(input(":")).strip()
+
 def PromptGroup():
     global courseGroups
     global courseGroup
@@ -197,17 +238,21 @@ def ProcessMenuOption(option):
     if (command == "getrubric"):
         CommandGetRubric(filename)
         quit()
-        
+
     if (command == "import"):
         CommandImport(filename)
         quit()
-        
+
     if (command == "importrubric"):
         CommandImportRubric(filename)
         quit()
-        
+
     if (command == "download"):
         CommandDownload(filename)
+        quit()
+
+    if (command == "exportquiz"):
+        CommandExportQuiz(filename)
         quit()
 
     if (command == "mentor"):
@@ -217,6 +262,7 @@ def ProcessMenuOption(option):
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
+    print("> exportquiz filename.csv")
     print("> getrubric filename.csv")
     print("> import filename.csv")
     print("> importrubric filename.csv")
@@ -267,6 +313,18 @@ def GetCourseAndAssignment(excludeSubmissions = False):
 
     if not excludeSubmissions:
         GetCourseAssignmentSubmissions()
+
+def GetCourseAndQuiz():
+    GetCourses()
+    PromptCourse()
+
+    GetCourseUsers()
+
+    GetCourseGroupCategories()
+    GetCourseGroups()
+
+    GetCourseQuizes()
+    PromptQuiz()
 
 
 def CommandMentor():
@@ -372,18 +430,80 @@ def CommandExport(filename):
 
     print("Done!")
 
+def CommandExportQuiz(filename):
+    global canvasCourseQuizes
+    global course
+    global quiz
+
+    GetCourseAndQuiz()
+    GetCourseQuizSubmissions()
+
+    submissionList = canvasCourseQuizSubmissions["quiz_submissions"]
+
+    questionCount = 0
+    quizData = FindQuiz(quiz)
+
+    if (quizData != None):
+        questionCount = quizData["question_count"]
+
+    print ("Exporting: " + filename + " (" + str(questionCount) + " questions in quiz)")
+
+    headerList =  ["course_id", "quiz_id", "user_id", "name", "score"];
+
+    for i in range(0, questionCount):
+        headerList.append("Q" + str(i + 1))
+
+    with open(filename, "w")  as csvfile:
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+
+        for submission in submissionList:
+            id = submission["id"]
+            user_id = submission["user_id"]
+            score = submission["score"]
+
+            name = ""
+            user = FindUser(user_id)
+            if (user != None):
+                name = user["sortable_name"]
+
+            correctList = []
+            for i in range(0, questionCount):
+                correctList.append(0)
+
+            submissionData = CanvasAPIGet("/api/v1/quiz_submissions/" + str(id)+ "/questions")
+
+            print(submissionData)
+
+            
+            submissionQuestions = submissionData["quiz_submission_questions"]
+            for entry in submissionQuestions:
+                if ("position" in entry and "correct" in entry):
+                    position = (entry["position"] - 1)
+                    correct = entry["correct"]
+                    if (correct == True):
+                        correctList[position] = 1
+
+            row = [course, quiz, user_id, name, score]
+            for i in range(0, questionCount):
+                row.append(correctList[i])
+
+            writer.writerow(row)
+
+    print("Done!")
+
 def CommandGetRubric(filename):
     global canvasCourseUsers
     global course
     global assignment
 
     GetCourseAndAssignment(True)
-    
+
     global course
     global assignment
     courseAssignnment = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment)
     rubric = courseAssignnment["rubric"]
-    
+
 
     print ("Exporting: " + filename)
     headerList =  ["course_id", "assignment_id", "rubric_id", "description", "long_description", "points"];
@@ -397,7 +517,7 @@ def CommandGetRubric(filename):
             writer.writerow(row)
 
     print("Done!")
-    
+
 def DownloadURLToFile(url, filename):
     with open(filename, "wb") as file:
         response = requests.get(url)
@@ -451,11 +571,11 @@ def CommandImport(filename):
             rowCount += 1
 
     print("Done!")
-    
+
 # follows the standard import headers, but link column must exist (and is not used)
 # rubric item ID goes in header cell, starting in the cell AFTER link
 # put points scored for that item under the rubric item ID and put the comments in the next column
-# must have a pair of these columns for every rubric item you wish to populate 
+# must have a pair of these columns for every rubric item you wish to populate
 # and they must be the LAST columns in the sheet starting AFTER link column
 # you can get the rubric item IDs from the exportrubric command
 # SAMPLE HEADERS: course_id	assignment_id, user_id, name, link, _5573, comment, _5397, comment
@@ -470,7 +590,7 @@ def CommandImportRubric(filename):
         user_id_index = IndexRequired(headerList, "user_id")
         link_index = IndexRequired(headerList, "link")
         rubric_item_start = link_index + 1
-        
+
         name_index = IndexRequired(headerList, "name", False)
         if (name_index < 0):
             name_index = IndexRequired(headerList, "Name", False)
