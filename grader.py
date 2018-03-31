@@ -7,6 +7,7 @@ import sys
 import requests
 import csv
 import urllib
+import time
 
 ################################################################################
 
@@ -41,7 +42,9 @@ def CanvasAPIGet(url):
 
     headers = {"Authorization": "Bearer " + token}
 
-    current = base + url
+    current = url
+    if (current.startswith(base) == False):
+        current = base + url
     responseList = []
 
     while True:
@@ -75,6 +78,21 @@ def CanvasAPIPut(url, params):
     headers = {"Authorization": "Bearer " + token}
 
     response = requests.put(base + url, headers=headers, data=params)
+
+    if (response.status_code != requests.codes.ok):
+        print("ERROR HTTP STATUS CODE: " + str(response.status_code))
+    else:
+        #print (response.text)
+        return response.json()
+
+def CanvasAPIPost(url, params):
+    global base
+    global token
+    global perPage
+
+    headers = {"Authorization": "Bearer " + token}
+
+    response = requests.post(base + url, headers=headers, data=params)
 
     if (response.status_code != requests.codes.ok):
         print("ERROR HTTP STATUS CODE: " + str(response.status_code))
@@ -430,6 +448,28 @@ def CommandExport(filename):
 
     print("Done!")
 
+def ExtractAnswers(events):
+    answers = {}
+    eventlist = events["quiz_submission_events"]
+
+    for event in eventlist:
+        event_type = event["event_type"]
+        if (event_type != "question_answered"):
+            continue
+        event_data = event["event_data"]
+        for subevent in event_data:
+            quiz_question_id = str(subevent["quiz_question_id"])
+            answer = subevent["answer"]
+            if (answer == None):
+                answer = ""
+            else:
+                answer = str(answer)
+
+        answers[quiz_question_id] = answer
+
+    return answers
+
+
 def CommandExportQuiz(filename):
     global canvasCourseQuizes
     global course
@@ -448,10 +488,26 @@ def CommandExportQuiz(filename):
 
     print ("Exporting: " + filename + " (" + str(questionCount) + " questions in quiz)")
 
+    #params = {
+    #    "quiz_report[report_type]":"student_analysis" #
+    #}
+
+    #print ("Telling canvas to generate the report.")
+    #report = CanvasAPIPost("/api/v1/courses/" + str(course) + "/quizzes/" + str(quiz)+ "/reports", params)
+    #reportURL = report["url"]
+
+    #print ("Sleeping for 10 second to give it time to do that.")
+    #time.sleep(10)
+
+
+
     headerList =  ["course_id", "quiz_id", "user_id", "name", "score"];
 
     for i in range(0, questionCount):
-        headerList.append("Q" + str(i + 1))
+        headerList.append("Q" + str(i + 1) + "Score")
+
+    for i in range(0, questionCount):
+        headerList.append("Q" + str(i + 1) + "Answer")
 
     with open(filename, "w")  as csvfile:
         writer = csv.writer(csvfile, dialect="excel")
@@ -471,22 +527,50 @@ def CommandExportQuiz(filename):
             for i in range(0, questionCount):
                 correctList.append(0)
 
+            events = CanvasAPIGet("/api/v1/courses/" + str(course) + "/quizzes/" + str(quiz) + "/submissions/" + str(id) + "/events")
+            answerdict = ExtractAnswers(events)
+
             submissionData = CanvasAPIGet("/api/v1/quiz_submissions/" + str(id)+ "/questions")
 
-            print(submissionData)
+            answerList = []
+            for i in range(0, questionCount):
+                answerList.append("")
 
-            
             submissionQuestions = submissionData["quiz_submission_questions"]
             for entry in submissionQuestions:
-                if ("position" in entry and "correct" in entry):
-                    position = (entry["position"] - 1)
+                if ("position" not in entry):
+                    continue
+
+                position = (entry["position"] - 1)
+
+                if ("correct" in entry):
                     correct = entry["correct"]
                     if (correct == True):
                         correctList[position] = 1
 
+                entry_id = str(entry["id"])
+                answer = ""
+                if (entry_id in answerdict):
+                    answer = answerdict[entry_id]
+
+                #Multiple choice answers are id numbers NOT A, B, C, D so we need to match them up
+                if (answer != "" and ("answers" in entry)):
+                    answers = entry["answers"]
+
+                    for a in range(0, len(answers)):
+                        ans = answers[a]
+                        if (str(ans["id"]) == answer):
+                            answer = chr(65 + a)
+                            break
+
+                answerList[position] = answer
+
             row = [course, quiz, user_id, name, score]
             for i in range(0, questionCount):
                 row.append(correctList[i])
+
+            for i in range(0, questionCount):
+                row.append(answerList[i])
 
             writer.writerow(row)
 
