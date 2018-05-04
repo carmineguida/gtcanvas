@@ -18,6 +18,7 @@ course = ""
 assignment = ""
 quiz = ""
 courseGroup = ""
+module = ""
 
 
 canvasProfile = {}
@@ -27,9 +28,11 @@ canvasCourseAssignments = []
 canvasCourseQuizes = []
 canvasCourseQuizSubmissions = []
 courseAssignmentSubmissions = []
+canvasCourseModules = []
 courseGroupCategories = []
 courseGroups = []
 courseGroupUsers = []
+
 
 ################################################################################
 
@@ -164,6 +167,35 @@ def SubmitGrade(course_id, assignment_id, user_id, score, comment):
 
     CanvasAPIPut("/api/v1/courses/" + course_id + "/assignments/" + assignment_id + "/submissions/" + user_id, params)
 
+def GetCourseModules():
+    global canvasCourseModules
+    global course
+    canvasCourseModules = CanvasAPIGet("/api/v1/courses/" + course + "/modules")
+
+def ModuleCreateItemSubHeader(course_id, module_id, position, indent, title):
+    params = {
+        "module_item[title]":title,
+        "module_item[type]":"SubHeader",
+        "module_item[position]":position,
+        "module_item[indent]":indent
+    }
+
+    CanvasAPIPost("/api/v1/courses/" + course_id + "/modules/" + module_id + "/items", params)
+
+
+def ModuleCreateItemExternalURL(course_id, module_id, position, indent, title, external_url):
+    params = {
+        "module_item[title]":title,
+        "module_item[type]":"ExternalUrl",
+        "module_item[position]":position,
+        "module_item[indent]":indent,
+        "module_item[external_url]":external_url,
+        "module_item[new_tab]":"true"
+    }
+
+    CanvasAPIPost("/api/v1/courses/" + course_id + "/modules/" + module_id + "/items", params)
+
+
 ################################################################################
 
 def FindSubmissionByUser(user):
@@ -237,6 +269,16 @@ def PromptGroup():
     while len(courseGroup) <= 0:
         courseGroup = str(input(":")).strip()
 
+def PromptModule():
+    global canvasModules
+    global module
+    print("Which Module?")
+    for entry in canvasCourseModules:
+        print(str(entry["id"]) + " " + entry["name"])
+
+    while len(module) <= 0:
+        module = str(input(":")).strip()
+
 
 def ProcessMenuOption(option):
     pos = option.find(" ")
@@ -273,6 +315,10 @@ def ProcessMenuOption(option):
         CommandExportQuiz(filename)
         quit()
 
+    if (command == "moduleimport"):
+        CommandModuleImport(filename)
+        quit()
+
     if (command == "mentor"):
         CommandMentor()
         quit()
@@ -285,6 +331,7 @@ def PromptMenu():
     print("> import filename.csv")
     print("> importrubric filename.csv")
     print("> download folder_to_put_files_in")
+    print("> moduleimport folder_to_recurse_through")
     print("> mentor")
 
     option = ""
@@ -415,6 +462,46 @@ def CommandDownload(foldername):
                     attachmentCount = attachmentCount + 1
 
     print("Done!")
+
+def CommandModuleImport(foldername):
+    global course
+    global module
+    global canvasCourseModules
+
+    GetCourses()
+    PromptCourse()
+
+    GetCourseModules()
+    PromptModule()
+
+    if (foldername.endswith("/") == False):
+        foldername = foldername + "/"
+
+    directories = os.listdir(foldername)
+    directories.sort()
+    position = 1
+    for dir in directories:
+        if (dir == ".DS_Store"):
+            continue
+        indent = 0
+        print("Creating SubHeader: " + dir)
+        ModuleCreateItemSubHeader(course, module, position, indent, dir)
+        position += 1
+        files = os.listdir(foldername + dir)
+        files.sort()
+        for file in files:
+            if (file.endswith(".srt") == True):
+                file = file[:-4]
+            indent = 1
+            print("Creating ExternalURL: " + file)
+            ModuleCreateItemExternalURL(course, module, position, indent, file, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            position += 1
+
+
+    print("Done!")
+
+
+
 
 def CommandExport(filename):
     global canvasCourseUsers
