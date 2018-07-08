@@ -281,12 +281,19 @@ def PromptModule():
 
 
 def ProcessMenuOption(option):
-    pos = option.find(" ")
-    if (pos < 0):
-        pos = len(option)
+    command = ""
+    filename = ""
+    otherfile = ""
+    options = option.split();
 
-    command = option[:pos].strip().lower()
-    filename = option[pos:].strip()
+    if (len(options) > 0):
+        command = options[0].strip().lower()
+
+    if (len(options) > 1):
+        filename = options[1].strip()
+
+    if (len(options) > 2):
+        otherfile = options[2].strip()
 
     if (command == "quit" or command == "exit"):
         quit()
@@ -308,7 +315,7 @@ def ProcessMenuOption(option):
         quit()
 
     if (command == "download"):
-        CommandDownload(filename)
+        CommandDownload(filename, otherfile)
         quit()
 
     if (command == "exportquiz"):
@@ -330,7 +337,7 @@ def PromptMenu():
     print("> getrubric filename.csv")
     print("> import filename.csv")
     print("> importrubric filename.csv")
-    print("> download folder_to_put_files_in")
+    print("> download folder_to_put_files_in [optional:user_id list file name]")
     print("> moduleimport folder_to_recurse_through")
     print("> mentor")
 
@@ -414,15 +421,41 @@ def CommandMentor():
 
     print("Done!")
 
+def DownloadSubmissionByUser(foldername, user):
+    link = ""
 
-def CommandDownload(foldername):
+    submission = FindSubmissionByUser(user)
+    if (submission != None):
+        if ("attachments" in submission):
+            attachments = submission["attachments"]
+            if (attachments is None):
+                return
+
+            attachmentCount = 0
+            for attachment in attachments:
+                link = attachment["url"]
+                if (link == ""):
+                    return
+
+                filename = user["sortable_name"]
+                filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+                if (attachmentCount > 0):
+                    filename = filename + "_" + str(attachmentCount)
+                filename = foldername + filename + ".pdf"
+
+                print("Downloading: " + link + " [to] " + filename)
+
+                DownloadURLToFile(link, filename)
+
+                attachmentCount = attachmentCount + 1
+
+
+def CommandDownload(foldername, otherfile):
     global canvasCourseUsers
     global course
     global assignment
 
     GetCourseAndAssignment()
-    PromptGroup()
-    GetCourseGroupUsers()
 
     if (foldername.endswith("/") == False):
         foldername = foldername + "/"
@@ -433,33 +466,26 @@ def CommandDownload(foldername):
 
     print ("Downloading to: " + foldername)
 
-    for user in courseGroupUsers:
-        link = ""
+    if (otherfile == ""):
+        PromptGroup()
+        GetCourseGroupUsers()
+        for user in courseGroupUsers:
+            DownloadSubmissionByUser(foldername, user)
+    else:
+        if (os.path.exists(otherfile) == False):
+            print("ERROR: " + otherfile + " does not exist.")
+            return
 
-        submission = FindSubmissionByUser(user)
-        if (submission != None):
-            if ("attachments" in submission):
-                attachments = submission["attachments"]
-                if (attachments is None):
-                    continue
+        lines = []
+        with open(otherfile) as f:
+            lines = f.readlines()
 
-                attachmentCount = 0
-                for attachment in attachments:
-                    link = attachment["url"]
-                    if (link == ""):
-                        continue
-
-                    filename = user["sortable_name"]
-                    filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-                    if (attachmentCount > 0):
-                        filename = filename + "_" + str(attachmentCount)
-                    filename = foldername + filename + ".pdf"
-
-                    print("Downloading: " + link + " [to] " + filename)
-
-                    DownloadURLToFile(link, filename)
-
-                    attachmentCount = attachmentCount + 1
+        for line in lines:
+            user_id = line.strip()
+            if (len(user_id) <= 0):
+                continue
+            user = FindUser(user_id)
+            DownloadSubmissionByUser(foldername, user)
 
     print("Done!")
 
