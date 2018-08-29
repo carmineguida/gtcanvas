@@ -58,13 +58,17 @@ def CanvasAPIGet(url):
             print("ERROR HTTP STATUS CODE: " + str(response.status_code))
             quit()
         else:
-            #print("")
-            #print("[" + current + "]")
-            #print (response.text)
             result = response.json()
+
+            # Quiz submissions are a list inside of a dict
+            if ("quizzes" in url and "submissions" in url):
+                if ("quiz_submissions" in result):
+                    result = result["quiz_submissions"]
+
             if (isinstance(result, dict)):
                 return result
             responseList.extend(result)
+
             linkCurrent = response.links["current"]
             linkLast = response.links["last"]
 
@@ -591,7 +595,8 @@ def CommandExportQuiz(filename):
     GetCourseAndQuiz()
     GetCourseQuizSubmissions()
 
-    submissionList = canvasCourseQuizSubmissions["quiz_submissions"]
+    submissionList = canvasCourseQuizSubmissions
+    print ("submissionList: " + str(len(submissionList)) + " entries.")
 
     questionCount = 0
     quizData = FindQuiz(quiz)
