@@ -133,9 +133,13 @@ def GetCourseGroups():
     courseGroups = CanvasAPIGet("/api/v1/courses/" + course + "/groups")
 
 def GetCourseGroupUsers():
+    global canvasCourseUsers
     global courseGroupUsers
     global courseGroup
     global course
+    if (courseGroup == "all"):
+        courseGroupUsers = canvasCourseUsers
+        return
     courseGroupUsers = CanvasAPIGet("/api/v1/groups/" + courseGroup + "/users")
 
 def GetCourseAssignments():
@@ -199,6 +203,12 @@ def ModuleCreateItemExternalURL(course_id, module_id, position, indent, title, e
 
     CanvasAPIPost("/api/v1/courses/" + course_id + "/modules/" + module_id + "/items", params)
 
+def GetName(entry):
+    if ("name" in entry):
+        return entry["name"]
+    return ""
+
+
 
 ################################################################################
 
@@ -238,7 +248,7 @@ def PromptCourse():
     global course
     print("Which Course?")
     for entry in canvasCourses:
-        print(str(entry["id"]) + " " + entry["name"])
+        print(str(entry["id"]) + " " + GetName(entry))
 
     while len(course) <= 0:
         course = str(input(":")).strip()
@@ -248,7 +258,7 @@ def PromptAssignment():
     global assignment
     print("Which Assignment?")
     for entry in canvasCourseAssignments:
-        print(str(entry["id"]) + " " + entry["name"])
+        print(str(entry["id"]) + " " + GetName(entry))
 
     while len(assignment) <= 0:
         assignment = str(input(":")).strip()
@@ -266,9 +276,20 @@ def PromptQuiz():
 def PromptGroup():
     global courseGroups
     global courseGroup
+
+    if (courseGroups is None):
+        print ("Course does not have groups. Using all students.")
+        courseGroup = "all"
+        return
+
+    if (len(courseGroups) <= 0):
+        print ("Course does not have groups. Using all students.")
+        courseGroup = "all"
+        return
+
     print("Which Group?")
     for entry in courseGroups:
-        print(str(entry["id"]) + " " + entry["name"])
+        print(str(entry["id"]) + " " + GetName(entry))
 
     while len(courseGroup) <= 0:
         courseGroup = str(input(":")).strip()
@@ -278,7 +299,7 @@ def PromptModule():
     global module
     print("Which Module?")
     for entry in canvasCourseModules:
-        print(str(entry["id"]) + " " + entry["name"])
+        print(str(entry["id"]) + " " + GetName(entry))
 
     while len(module) <= 0:
         module = str(input(":")).strip()
@@ -425,6 +446,12 @@ def CommandMentor():
 
     print("Done!")
 
+def GetExtension(filename):
+    pos = filename.rfind(".")
+    if (pos < 0):
+        return ""
+    return filename[pos:].lower().strip()
+
 def DownloadSubmissionByUser(foldername, user):
     link = ""
 
@@ -441,11 +468,13 @@ def DownloadSubmissionByUser(foldername, user):
                 if (link == ""):
                     return
 
+                ext = GetExtension(link)
                 filename = user["sortable_name"]
                 filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
                 if (attachmentCount > 0):
                     filename = filename + "_" + str(attachmentCount)
-                filename = foldername + filename + ".pdf"
+
+                filename = foldername + filename + ext
 
                 print("Downloading: " + link + " [to] " + filename)
 
