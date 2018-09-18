@@ -53,9 +53,12 @@ def CanvasAPIGet(url):
     while True:
         params = {"page":str(pageNum), "per_page":"100"}
         response = requests.get(current, headers=headers, params=params)
-
         if (response.status_code != requests.codes.ok):
+            if (response.status_code == 401):
+                if (url.endswith("group_categories")):
+                    return []
             print("ERROR HTTP STATUS CODE: " + str(response.status_code))
+            print("URL: " + url)
             quit()
         else:
             result = response.json()
@@ -468,7 +471,7 @@ def DownloadSubmissionByUser(foldername, user):
                 if (link == ""):
                     return
 
-                ext = GetExtension(link)
+                ext = GetExtension(attachment["filename"])
                 filename = user["sortable_name"]
                 filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c==' ']).rstrip()
                 if (attachmentCount > 0):
