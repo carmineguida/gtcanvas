@@ -24,6 +24,7 @@ module = ""
 canvasProfile = {}
 canvasCourses = []
 canvasCourseUsers = []
+canvasCourseEnrollments = []
 canvasCourseAssignments = []
 canvasCourseQuizes = []
 canvasCourseQuizSubmissions = []
@@ -134,6 +135,19 @@ def GetCourseUsers(include_email=False):
         params["include[]"] = "email"
 
     canvasCourseUsers = CanvasAPIGet("/api/v1/courses/" + course + "/users", params)
+
+def GetCourseEnrollments(students_only=False):
+    global canvasCourseEnrollments
+    global course
+
+    params = {}
+
+    if (students_only):
+        params["type[]"] = "StudentEnrollment"
+
+
+    canvasCourseEnrollments = CanvasAPIGet("/api/v1/courses/" + course + "/enrollments", params)
+
 
 def GetCourseGroupCategories():
     global courseGroupCategories
@@ -474,13 +488,21 @@ def CommandExportEmail(filename):
     GetCourseUsers(True)
 
     print("Exporting: " + filename)
-    headerList = ["user_id", "name", "email"];
+    headerList = ["user_id", "name", "email", "email_alias"];
 
     with open(filename, "w")  as csvfile:
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
         for user in canvasCourseUsers:
-            row = [user["id"], user["sortable_name"], user["email"]]
+            login_id = ""
+            if ("login_id" in user):
+                login_id = user["login_id"]
+                if (login_id is None):
+                    login_id = ""
+                else:
+                    login_id = login_id + "@gatech.edu"
+
+            row = [user["id"], user["sortable_name"], login_id, user["email"]]
             writer.writerow(row)
 
     print("Done!")
