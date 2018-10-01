@@ -36,7 +36,7 @@ courseGroupUsers = []
 
 ################################################################################
 
-def CanvasAPIGet(url):
+def CanvasAPIGet(url, extra_params={}):
     global base
     global token
     global perPage
@@ -52,6 +52,7 @@ def CanvasAPIGet(url):
 
     while True:
         params = {"page":str(pageNum), "per_page":"100"}
+        params.update(extra_params)
         response = requests.get(current, headers=headers, params=params)
         if (response.status_code != requests.codes.ok):
             if (response.status_code == 401):
@@ -116,14 +117,23 @@ def GetProfile():
     global canvasProfile
     canvasProfile = CanvasAPIGet("/api/v1/users/self/profile")
 
+def GetUserProfile(user_id):
+    return CanvasAPIGet("/api/v1/users/" + user_id + "/profile")
+
 def GetCourses():
     global canvasCourses
     canvasCourses = CanvasAPIGet("/api/v1/courses")
 
-def GetCourseUsers():
+def GetCourseUsers(include_email=False):
     global canvasCourseUsers
     global course
-    canvasCourseUsers = CanvasAPIGet("/api/v1/courses/" + course + "/users")
+
+    params = {}
+
+    if (include_email):
+        params["include[]"] = "email"
+
+    canvasCourseUsers = CanvasAPIGet("/api/v1/courses/" + course + "/users", params)
 
 def GetCourseGroupCategories():
     global courseGroupCategories
@@ -358,6 +368,10 @@ def ProcessMenuOption(option):
         CommandMentor()
         quit()
 
+    if (command == "exportemail"):
+        CommandExportEmail(filename)
+        quit()
+
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
@@ -368,6 +382,7 @@ def PromptMenu():
     print("> download folder_to_put_files_in [optional:user_id list file name]")
     print("> moduleimport folder_to_recurse_through")
     print("> mentor")
+    print("> exportemail filename.csv")
 
     option = ""
 
@@ -448,6 +463,28 @@ def CommandMentor():
         print(mentorName + " - " + user["name"] + " - Mentor Discussion thread")
 
     print("Done!")
+
+def CommandExportEmail(filename):
+    global canvasCourseUsers
+    global course
+
+    GetCourses()
+    PromptCourse()
+
+    GetCourseUsers(True)
+
+    print("Exporting: " + filename)
+    headerList = ["user_id", "name", "email"];
+
+    with open(filename, "w")  as csvfile:
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+        for user in canvasCourseUsers:
+            row = [user["id"], user["sortable_name"], user["email"]]
+            writer.writerow(row)
+
+    print("Done!")
+
 
 def GetExtension(filename):
     pos = filename.rfind(".")
