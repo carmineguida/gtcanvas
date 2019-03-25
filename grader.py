@@ -197,7 +197,8 @@ def SubmitGrade(course_id, assignment_id, user_id, score, comment):
     params = {
         "include[visibility]":"true",
         "submission[posted_grade]":score,
-        "comment[text_comment]":comment
+        "comment[text_comment]":comment,
+        "comment[group_comment]":"true"
     }
 
     CanvasAPIPut("/api/v1/courses/" + course_id + "/assignments/" + assignment_id + "/submissions/" + user_id, params)
