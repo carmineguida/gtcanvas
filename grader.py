@@ -700,7 +700,7 @@ def CommandKalturaImport(filename, htmlfilename):
 
             # using the URL, we can create a module using the "page" type
             # You may want to look at the code above to figure out how you want to do position and index
-            # ModuleCreateItemPage(course, module, position, indent, url)
+            # ModuleCreateItemPage(course, module, position, indent, title, url)
 
     print("Done!")
 
