@@ -231,6 +231,32 @@ def ModuleCreateItemExternalURL(course_id, module_id, position, indent, title, e
 
     CanvasAPIPost("/api/v1/courses/" + course_id + "/modules/" + module_id + "/items", params)
 
+
+def PageCreate(course_id, title, body):
+    params = {
+        "wiki_page[title]":title,
+        "wiki_page[body]":body,
+        "wiki_page[editing_roles]":"teachers",
+        "wiki_page[published]":"true",
+        "wiki_page[notify_of_update]":"false"
+    }
+
+    CanvasAPIPost("/api/v1/courses/" + course_id + "/pages", params)
+
+
+def ModuleCreateItemPage(course_id, module_id, position, indent, title, page_url):
+    params = {
+        "module_item[title]":title,
+        "module_item[type]":"Page",
+        "module_item[position]":position,
+        "module_item[indent]":indent,
+        "module_item[page_url]":page_url,
+        "module_item[new_tab]":"false"
+    }
+
+    CanvasAPIPost("/api/v1/courses/" + course_id + "/modules/" + module_id + "/items", params)
+
+
 def GetName(entry):
     if ("name" in entry):
         return entry["name"]
@@ -379,6 +405,10 @@ def ProcessMenuOption(option):
         CommandModuleImport(filename)
         quit()
 
+    if (command == "kalturaimport"):
+        CommandKalturaImport(filename, otherfile)
+        quit()
+
     if (command == "mentor"):
         CommandMentor()
         quit()
@@ -396,6 +426,7 @@ def PromptMenu():
     print("> importrubric filename.csv")
     print("> download folder_to_put_files_in [optional:user_id list file name]")
     print("> moduleimport folder_to_recurse_through")
+    print("> kalturaimport filename.csv template.html")
     print("> mentor")
     print("> exportemail filename.csv")
 
@@ -621,6 +652,58 @@ def CommandModuleImport(foldername):
 
 
     print("Done!")
+
+
+def CommandKalturaImport(filename, htmlfilename):
+    global course
+    global module
+    global canvasCourseModules
+
+
+    # Get the course we are putting this into
+    GetCourses()
+    PromptCourse()
+
+
+    # Open the HTML template
+    template = ""
+    with open(htmlfilename, "r") as file:
+        template = file.read()
+
+
+    # Open the CSV File
+    with open(filename, "r")  as csvfile:
+        reader = csv.reader(csvfile)
+        headerList = next(reader)
+
+        # Get the columns
+        lesson_index = IndexRequired(headerList, "Lesson")
+        concept_index_index = IndexRequired(headerList, "Concept Index")
+        title_index = IndexRequired(headerList, "Concept Title")
+
+
+        rowCount = 1
+        for row in reader:
+            # Get the data from the columns
+            lesson = row[lesson_index]
+            concept_index = row[concept_index_index]
+            title = row[title_index]
+
+            # Printing for now...
+            print(title)
+
+            body = template.replace("[CONCEPT TITLE]", title)
+
+            # This will actually create things...
+            # page = PageCreate(course, title, body)
+            # url = page["url"]
+
+            # using the URL, we can create a module using the "page" type
+            # You may want to look at the code above to figure out how you want to do position and index
+            # ModuleCreateItemPage(course, module, position, indent, url)
+
+    print("Done!")
+
 
 
 
