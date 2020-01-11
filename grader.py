@@ -125,7 +125,7 @@ def GetCourses():
     global canvasCourses
     canvasCourses = CanvasAPIGet("/api/v1/courses")
 
-def GetCourseUsers(include_email=False):
+def GetCourseUsers(include_email=False, include_enrollment=False):
     global canvasCourseUsers
     global course
 
@@ -133,6 +133,8 @@ def GetCourseUsers(include_email=False):
 
     if (include_email):
         params["include[]"] = "email"
+    if (include_enrollment):
+        params["include[]"] = "enrollments"
 
     canvasCourseUsers = CanvasAPIGet("/api/v1/courses/" + course + "/users", params)
 
@@ -416,6 +418,10 @@ def ProcessMenuOption(option):
     if (command == "exportemail"):
         CommandExportEmail(filename)
         quit()
+    
+    if (command == "exportroster"):
+        CommandExportRoster(filename)
+        quit()
 
 def PromptMenu():
     print("What would you like to do?")
@@ -429,6 +435,7 @@ def PromptMenu():
     print("> kalturaimport filename.csv template.html")
     print("> mentor")
     print("> exportemail filename.csv")
+    print("> exportroster filename.csv")
 
     option = ""
 
@@ -517,12 +524,12 @@ def CommandExportEmail(filename):
     GetCourses()
     PromptCourse()
 
-    GetCourseUsers(True)
+    GetCourseUsers(True, False)
 
     print("Exporting: " + filename)
     headerList = ["user_id", "name", "email", "email_alias"];
 
-    with open(filename, "w")  as csvfile:
+    with open(filename, "w", newline='')  as csvfile:
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
         for user in canvasCourseUsers:
@@ -539,6 +546,40 @@ def CommandExportEmail(filename):
 
     print("Done!")
 
+def CommandExportRoster(filename):
+    global canvasCourseUsers
+    global course
+
+    GetCourses()
+    PromptCourse()
+
+    GetCourseUsers(True, True)
+
+    print("Exporting: " + filename)
+    headerList = ["Name", "Email Alias", "GTID", "gtAccount", "Major", "Role", "Section", "Confidential", "Canvas  ID"]
+
+    with open(filename, "w", newline='')  as csvfile:
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+        
+        for user in canvasCourseUsers:
+            userType = ""
+
+            for myCourses in user["enrollments"]:
+                if str(myCourses["course_id"]) == str(course):
+                    userType = myCourses["role"].replace("Enrollment","")
+            
+            login_id = ""
+            if ("login_id" in user):
+                login_id = user["login_id"]
+                if (login_id is None):
+                    login_id = ""
+
+
+            row = [user["sortable_name"], user["email"], user["sis_user_id"], login_id, "", userType, "", "", user["id"] ]
+            writer.writerow(row)
+
+    print("Done!")
 
 def GetExtension(filename):
     pos = filename.rfind(".")
@@ -719,7 +760,7 @@ def CommandExport(filename):
     print ("Exporting: " + filename)
     headerList =  ["course_id", "assignment_id", "user_id", "name", "link", "score", "comment"];
 
-    with open(filename, "w")  as csvfile:
+    with open(filename, "w", newline='')  as csvfile:
 
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
@@ -803,7 +844,7 @@ def CommandExportQuiz(filename):
     for i in range(0, questionCount):
         headerList.append("Q" + str(i + 1) + "Answer")
 
-    with open(filename, "w")  as csvfile:
+    with open(filename, "w", newline='')  as csvfile:
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
 
@@ -886,7 +927,7 @@ def CommandGetRubric(filename):
     print ("Exporting: " + filename)
     headerList =  ["course_id", "assignment_id", "rubric_id", "description", "long_description", "points"];
 
-    with open(filename, "w")  as csvfile:
+    with open(filename, "w", newline='', encoding="utf-8")  as csvfile:
 
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
