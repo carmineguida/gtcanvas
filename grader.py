@@ -175,6 +175,7 @@ def GetCourseAssignments():
     global canvasCourseAssignments
     global course
     canvasCourseAssignments = CanvasAPIGet("/api/v1/courses/" + course + "/assignments")
+    pass
 
 def GetCourseQuizes():
     global canvasCourseQuizes
@@ -193,7 +194,8 @@ def GetCourseAssignmentSubmissions():
     global courseAssignmentSubmissions
     global course
     global assignment
-    courseAssignmentSubmissions = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment + "/submissions")
+    courseAssignmentSubmissions = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment + "/submissions",
+                                               {'include[]' : 'rubric_assessment'})
 
 def SubmitGrade(course_id, assignment_id, user_id, score, comment):
     params = {
@@ -287,6 +289,13 @@ def FindQuiz(quiz_id):
     global canvasCourseQuizes
     for entry in canvasCourseQuizes:
         if (int(entry["id"]) == int(quiz_id)):
+            return entry
+    return None
+
+def FindAssignment(assignment_id):
+    global canvasCourseAssignments
+    for entry in canvasCourseAssignments:
+        if (int(entry["id"]) == int(assignment_id)):
             return entry
     return None
 
@@ -788,7 +797,28 @@ def CommandExport(filename):
     print("Done!")
 
 def CommandExportRubric(filename):
-    pass
+    global canvasCourseUsers
+    global course
+    global assignment
+
+    GetCourseAndAssignment()
+    GetCourseAssignments()
+
+    assignmentDetails = FindAssignment(assignment)
+
+    print ("Exporting: " + filename)
+    headerList =  ["course_id", "assignment_id", "user_id", "name", "link"];
+    rubricIds = [criterion["id"] for criterion in assignmentDetails["rubric"]]
+    headerList += rubricIds # TODO: Comments fields after every rubricId
+
+    with open(filename, "w", newline='')  as csvfile:
+
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+
+        # TODO: Get the submission and write out each criterion and comment to a row
+    
+    print("Done!")
 
 def ExtractAnswers(events):
     answers = {}
