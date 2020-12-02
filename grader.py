@@ -383,6 +383,10 @@ def ProcessMenuOption(option):
         CommandExport(filename)
         quit()
 
+    if (command == "exportrubric"):
+        CommandExportRubric(filename)
+        quit()
+
     if (command == "getrubric"):
         CommandGetRubric(filename)
         quit()
@@ -426,6 +430,7 @@ def ProcessMenuOption(option):
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
+    print("> exportrubric filename.csv")
     print("> exportquiz filename.csv")
     print("> getrubric filename.csv")
     print("> import filename.csv")
@@ -781,6 +786,9 @@ def CommandExport(filename):
             writer.writerow(row)
 
     print("Done!")
+
+def CommandExportRubric(filename):
+    pass
 
 def ExtractAnswers(events):
     answers = {}
