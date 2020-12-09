@@ -808,16 +808,32 @@ def CommandExportRubric(filename):
 
     print ("Exporting: " + filename)
     headerList =  ["course_id", "assignment_id", "user_id", "name", "link"];
-    rubricIds = [criterion["id"] for criterion in assignmentDetails["rubric"]]
-    headerList += rubricIds # TODO: Comments fields after every rubricId
+    criterionIDs = [criterion["id"] for criterion in assignmentDetails["rubric"]]
+    for id in criterionIDs:
+        headerList.append(id)
+        headerList.append("Comments")
 
     with open(filename, "w", newline='')  as csvfile:
-
         writer = csv.writer(csvfile, dialect="excel")
         writer.writerow(headerList)
 
-        # TODO: Get the submission and write out each criterion and comment to a row
-    
+        for user in canvasCourseUsers:
+            link = ""
+            submission = FindSubmissionByUser(user)
+            if (submission != None and "rubric_assessment" in submission):
+                rubricAssessment = submission["rubric_assessment"]
+                row = [course, assignment, user["id"], user["sortable_name"], link]
+                for id in criterionIDs:
+                    if id in rubricAssessment:
+                        criterion = rubricAssessment[id]
+                        row.append(criterion["points"])
+                        row.append(criterion["comments"])
+                    else:
+                        row.append(0)
+                        row.append("")
+
+                writer.writerow(row)
+
     print("Done!")
 
 def ExtractAnswers(events):
