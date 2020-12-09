@@ -175,7 +175,6 @@ def GetCourseAssignments():
     global canvasCourseAssignments
     global course
     canvasCourseAssignments = CanvasAPIGet("/api/v1/courses/" + course + "/assignments")
-    pass
 
 def GetCourseQuizes():
     global canvasCourseQuizes
