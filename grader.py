@@ -193,7 +193,8 @@ def GetCourseAssignmentSubmissions():
     global courseAssignmentSubmissions
     global course
     global assignment
-    courseAssignmentSubmissions = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment + "/submissions")
+    courseAssignmentSubmissions = CanvasAPIGet("/api/v1/courses/" + course + "/assignments/" + assignment + "/submissions",
+                                               {'include[]' : 'rubric_assessment'})
 
 def SubmitGrade(course_id, assignment_id, user_id, score, comment):
     params = {
@@ -290,6 +291,13 @@ def FindQuiz(quiz_id):
             return entry
     return None
 
+def FindAssignment(assignment_id):
+    global canvasCourseAssignments
+    for entry in canvasCourseAssignments:
+        if (int(entry["id"]) == int(assignment_id)):
+            return entry
+    return None
+
 ################################################################################
 
 def PromptToken():
@@ -383,6 +391,10 @@ def ProcessMenuOption(option):
         CommandExport(filename)
         quit()
 
+    if (command == "exportrubric"):
+        CommandExportRubric(filename)
+        quit()
+
     if (command == "getrubric"):
         CommandGetRubric(filename)
         quit()
@@ -426,6 +438,7 @@ def ProcessMenuOption(option):
 def PromptMenu():
     print("What would you like to do?")
     print("> export filename.csv")
+    print("> exportrubric filename.csv")
     print("> exportquiz filename.csv")
     print("> getrubric filename.csv")
     print("> import filename.csv")
@@ -779,6 +792,46 @@ def CommandExport(filename):
 
             row = [course, assignment, user["id"], user["sortable_name"], link, score, comment]
             writer.writerow(row)
+
+    print("Done!")
+
+def CommandExportRubric(filename):
+    global canvasCourseUsers
+    global course
+    global assignment
+
+    GetCourseAndAssignment()
+    GetCourseAssignments()
+
+    assignmentDetails = FindAssignment(assignment)
+
+    print ("Exporting: " + filename)
+    headerList =  ["course_id", "assignment_id", "user_id", "name", "link"];
+    criterionIDs = [criterion["id"] for criterion in assignmentDetails["rubric"]]
+    for id in criterionIDs:
+        headerList.append(id)
+        headerList.append("Comments")
+
+    with open(filename, "w", newline='')  as csvfile:
+        writer = csv.writer(csvfile, dialect="excel")
+        writer.writerow(headerList)
+
+        for user in canvasCourseUsers:
+            link = ""
+            submission = FindSubmissionByUser(user)
+            if (submission != None and "rubric_assessment" in submission):
+                rubricAssessment = submission["rubric_assessment"]
+                row = [course, assignment, user["id"], user["sortable_name"], link]
+                for id in criterionIDs:
+                    if id in rubricAssessment:
+                        criterion = rubricAssessment[id]
+                        row.append(criterion["points"])
+                        row.append(criterion["comments"])
+                    else:
+                        row.append(0)
+                        row.append("")
+
+                writer.writerow(row)
 
     print("Done!")
 
